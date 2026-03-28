@@ -228,6 +228,17 @@ pub struct Atmosphere {
     /// A handle to a [`ScatteringMedium`], which describes the substance
     /// of the atmosphere and how it scatters light.
     pub medium: Handle<ScatteringMedium>,
+
+    /// Direction from the planet centre toward the camera, in world space.
+    ///
+    /// For flat Y-up worlds (the default), leave this as `Vec3::Y`.
+    /// For spherical planets, set this each frame to
+    /// `(camera_world_position - planet_centre).normalize()`.
+    ///
+    /// This allows the atmosphere shader to correctly orient itself
+    /// for any position on a sphere without requiring the scene to be
+    /// rotated so that Y is always "up".
+    pub planet_up: Vec3,
 }
 
 impl Atmosphere {
@@ -240,6 +251,7 @@ impl Atmosphere {
             top_radius: EARTH_TOP_RADIUS,
             ground_albedo: EARTH_ALBEDO,
             medium,
+            planet_up: Vec3::Y,
         }
     }
 }
@@ -257,6 +269,7 @@ impl ExtractComponent for Atmosphere {
             top_radius: item.top_radius,
             ground_albedo: item.ground_albedo,
             medium: item.medium.id(),
+            planet_up: item.planet_up,
         })
     }
 }
@@ -269,6 +282,7 @@ pub struct ExtractedAtmosphere {
     pub top_radius: f32,
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
+    pub planet_up: Vec3,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and

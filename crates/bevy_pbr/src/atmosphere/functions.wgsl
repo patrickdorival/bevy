@@ -299,15 +299,23 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
-/// Returns the observer's position in the atmosphere
+/// Returns the observer's position relative to the planet centre, in world space.
+/// The result's direction approximates planet_up; its length is the camera's
+/// distance from the planet centre (bottom_radius + altitude).
+///
+/// For flat Y-up worlds (planet_up = vec3(0,1,0)) this is identical to the
+/// original hardcoded offset. For spherical planets, it correctly places the
+/// camera along the actual planet-up direction.
 fn get_view_position() -> vec3<f32> {
-    var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
+    var world_pos = view.world_position * settings.scene_units_to_m + atmosphere.planet_up * atmosphere.bottom_radius;
     return clamp_to_surface(atmosphere, world_pos);
 }
 
-// We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
-// t = distance along view ray in atmosphere space
-// NOTE: this means that if your world is actually spherical, this will be wrong.
+// Returns the local "up" direction at a point along a view ray.
+// This operates in atmosphere-local space where Y is always up
+// (the world_from_atmosphere transform handles the mapping from
+// planet_up to Y). Used by LUT computation shaders that don't
+// have access to atmosphere_transforms.
 fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
@@ -328,16 +336,20 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
     return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
-/// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
-    // Camera forward in world space (-Z in view to world transform)
-    let forward_ws = (view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
-    let tangent_z = normalize(up * dot(forward_ws, up) - forward_ws);
-    let tangent_x = cross(up, tangent_z);
+/// Converts a direction in world space to atmosphere space.
+/// Uses the transpose of world_from_atmosphere (which is orthonormal, so
+/// transpose = inverse). This ensures perfect consistency with
+/// direction_atmosphere_to_world and the sky_view_lut computation.
+///
+/// The `_up` parameter is kept for API compatibility but ignored — the
+/// correct "up" is already encoded in the matrix's Y column (planet_up).
+fn direction_world_to_atmosphere(dir_ws: vec3<f32>, _up: vec3<f32>) -> vec3<f32> {
+    let m = atmosphere_transforms.world_from_atmosphere;
+    // Transpose of the rotation part: dot dir_ws with each column
     return vec3(
-        dot(dir_ws, tangent_x),
-        dot(dir_ws, up),
-        dot(dir_ws, tangent_z),
+        dot(dir_ws, m[0].xyz),
+        dot(dir_ws, m[1].xyz),
+        dot(dir_ws, m[2].xyz),
     );
 }
 

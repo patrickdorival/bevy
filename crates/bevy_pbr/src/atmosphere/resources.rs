@@ -479,6 +479,9 @@ pub struct GpuAtmosphere {
     pub ground_albedo: Vec3,
     pub bottom_radius: f32,
     pub top_radius: f32,
+    /// Direction from planet centre toward camera, in world space.
+    /// Defaults to Vec3::Y for flat Y-up worlds.
+    pub planet_up: Vec3,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -490,6 +493,7 @@ pub fn prepare_atmosphere_uniforms(
             ground_albedo: atmosphere.ground_albedo,
             bottom_radius: atmosphere.bottom_radius,
             top_radius: atmosphere.top_radius,
+            planet_up: atmosphere.planet_up,
         });
     }
     Ok(())
@@ -525,7 +529,7 @@ impl AtmosphereTransformsOffset {
 }
 
 pub(super) fn prepare_atmosphere_transforms(
-    views: Query<(Entity, &ExtractedView), (With<ExtractedAtmosphere>, With<Camera3d>)>,
+    views: Query<(Entity, &ExtractedView, &ExtractedAtmosphere), With<Camera3d>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
@@ -540,15 +544,36 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view) in &views {
+    for (entity, view, extracted_atmo) in &views {
         let world_from_view = view.world_from_view.affine();
         let camera_z = world_from_view.matrix3.z_axis;
         let camera_y = world_from_view.matrix3.y_axis;
-        let atmo_z = camera_z
-            .with_y(0.0)
+
+        // Compute the camera's actual radial direction relative to the planet
+        // centre, rather than using the vessel's planet_up directly.
+        // This ensures the atmosphere coordinate frame matches the camera's
+        // position even when the camera orbits far from the vessel (map view).
+        //
+        // camera_planet_relative ≈ camera_render_pos + vessel_planet_up * bottom_radius
+        // For flight mode (camera near vessel), this ≈ vessel's planet_up.
+        // For map mode (camera far from vessel), this follows the camera's own radial.
+        let vessel_planet_up = Vec3A::from(extracted_atmo.planet_up);
+        let camera_planet_relative = world_from_view.translation
+            + vessel_planet_up * extracted_atmo.bottom_radius;
+        let planet_up = camera_planet_relative
             .try_normalize()
-            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-        let atmo_y = Vec3A::Y;
+            .unwrap_or(vessel_planet_up);
+
+        // Project camera forward onto the plane perpendicular to planet_up
+        // to get the atmosphere's "forward" (Z) basis vector.
+        let proj = camera_z - planet_up * camera_z.dot(planet_up);
+        let atmo_z = proj
+            .try_normalize()
+            .unwrap_or_else(|| {
+                let proj2 = camera_y - planet_up * camera_y.dot(planet_up);
+                proj2.normalize()
+            });
+        let atmo_y = planet_up;
         let atmo_x = atmo_y.cross(atmo_z).normalize();
         let world_from_atmosphere =
             Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
@@ -780,6 +805,7 @@ pub fn init_atmosphere_buffer(mut commands: Commands) {
                 ground_albedo: Vec3::ZERO,
                 bottom_radius: 0.0,
                 top_radius: 0.0,
+                planet_up: Vec3::Y,
             },
             settings: GpuAtmosphereSettings::default(),
         }),

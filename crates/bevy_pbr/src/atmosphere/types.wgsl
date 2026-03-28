@@ -6,6 +6,10 @@ struct Atmosphere {
     bottom_radius: f32, // units: m
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, // units: m
+    // Direction from planet centre toward the camera, in world space.
+    // For flat Y-up worlds: vec3(0, 1, 0). For spherical planets: normalised
+    // direction from planet centre to camera, updated each frame.
+    planet_up: vec3<f32>,
 }
 
 struct AtmosphereSettings {
@@ -24,8 +28,11 @@ struct AtmosphereSettings {
     rendering_method: u32,
 }
 
-// "Atmosphere space" is just the view position with y=0 and oriented horizontally,
-// so the horizon stays a horizontal line in our luts
+// "Atmosphere space" is the camera's local coordinate system where Y is always
+// "up" from the planet surface. The world_from_atmosphere matrix maps this
+// local space to world space. For spherical planets, set Atmosphere.planet_up
+// on the Rust side to the direction from planet centre to camera — the
+// prepare_atmosphere_transforms system builds the correct basis from it.
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
 }
