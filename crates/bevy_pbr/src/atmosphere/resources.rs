@@ -482,6 +482,11 @@ pub struct GpuAtmosphere {
     /// Direction from planet centre toward camera, in world space.
     /// Defaults to Vec3::Y for flat Y-up worlds.
     pub planet_up: Vec3,
+    /// Distance from camera to planet centre. Used for camera position
+    /// reconstruction in the shader (planet_up * observer_radius).
+    /// Separate from bottom_radius so scattering uses the planet surface
+    /// while camera positioning uses the actual observer altitude.
+    pub observer_radius: f32,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -494,6 +499,7 @@ pub fn prepare_atmosphere_uniforms(
             bottom_radius: atmosphere.bottom_radius,
             top_radius: atmosphere.top_radius,
             planet_up: atmosphere.planet_up,
+            observer_radius: atmosphere.observer_radius,
         });
     }
     Ok(())
@@ -554,12 +560,13 @@ pub(super) fn prepare_atmosphere_transforms(
         // This ensures the atmosphere coordinate frame matches the camera's
         // position even when the camera orbits far from the vessel (map view).
         //
-        // camera_planet_relative ≈ camera_render_pos + vessel_planet_up * bottom_radius
-        // For flight mode (camera near vessel), this ≈ vessel's planet_up.
-        // For map mode (camera far from vessel), this follows the camera's own radial.
+        // camera_planet_relative ≈ camera_render_pos + planet_up * observer_radius
+        // observer_radius is the camera's actual distance from planet centre,
+        // separate from bottom_radius (which is the planet surface radius for
+        // scattering calculations).
         let vessel_planet_up = Vec3A::from(extracted_atmo.planet_up);
         let camera_planet_relative = world_from_view.translation
-            + vessel_planet_up * extracted_atmo.bottom_radius;
+            + vessel_planet_up * extracted_atmo.observer_radius;
         let planet_up = camera_planet_relative
             .try_normalize()
             .unwrap_or(vessel_planet_up);
@@ -806,6 +813,7 @@ pub fn init_atmosphere_buffer(mut commands: Commands) {
                 bottom_radius: 0.0,
                 top_radius: 0.0,
                 planet_up: Vec3::Y,
+                observer_radius: 0.0,
             },
             settings: GpuAtmosphereSettings::default(),
         }),

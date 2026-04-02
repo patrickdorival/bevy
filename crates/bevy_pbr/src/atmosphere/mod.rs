@@ -239,6 +239,18 @@ pub struct Atmosphere {
     /// for any position on a sphere without requiring the scene to be
     /// rotated so that Y is always "up".
     pub planet_up: Vec3,
+
+    /// Distance from the camera/observer to the planet centre, in metres.
+    ///
+    /// Used by the shader to reconstruct the camera's position relative to
+    /// the planet centre (via `planet_up * observer_radius`). This is
+    /// separate from `bottom_radius` so that `bottom_radius` can be the
+    /// actual planet surface radius (for correct scattering calculations)
+    /// while `observer_radius` tracks the camera's altitude.
+    ///
+    /// For flat worlds, set this equal to `bottom_radius`.
+    /// For spherical planets, set this to `(camera_pos - planet_centre).length()`.
+    pub observer_radius: f32,
 }
 
 impl Atmosphere {
@@ -252,6 +264,7 @@ impl Atmosphere {
             ground_albedo: EARTH_ALBEDO,
             medium,
             planet_up: Vec3::Y,
+            observer_radius: EARTH_BOTTOM_RADIUS, // At surface by default
         }
     }
 }
@@ -270,6 +283,7 @@ impl ExtractComponent for Atmosphere {
             ground_albedo: item.ground_albedo,
             medium: item.medium.id(),
             planet_up: item.planet_up,
+            observer_radius: item.observer_radius,
         })
     }
 }
@@ -283,6 +297,7 @@ pub struct ExtractedAtmosphere {
     pub ground_albedo: Vec3,
     pub medium: AssetId<ScatteringMedium>,
     pub planet_up: Vec3,
+    pub observer_radius: f32,
 }
 
 /// This component controls the resolution of the atmosphere LUTs, and

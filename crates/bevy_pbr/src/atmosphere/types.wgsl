@@ -2,14 +2,18 @@
 
 struct Atmosphere {
     ground_albedo: vec3<f32>,
-    // Radius of the planet
+    // Radius of the planet surface (for scattering ground)
     bottom_radius: f32, // units: m
-    // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    // Radius at which we consider the atmosphere to 'end' for our calculations (from center of planet)
     top_radius: f32, // units: m
     // Direction from planet centre toward the camera, in world space.
     // For flat Y-up worlds: vec3(0, 1, 0). For spherical planets: normalised
     // direction from planet centre to camera, updated each frame.
     planet_up: vec3<f32>,
+    // Distance from camera/observer to planet centre. Used for camera position
+    // reconstruction (planet_up * observer_radius). Separate from bottom_radius
+    // so scattering uses planet surface while positioning uses observer altitude.
+    observer_radius: f32,
 }
 
 struct AtmosphereSettings {

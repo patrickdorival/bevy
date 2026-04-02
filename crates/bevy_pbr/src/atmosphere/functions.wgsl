@@ -307,7 +307,11 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 /// original hardcoded offset. For spherical planets, it correctly places the
 /// camera along the actual planet-up direction.
 fn get_view_position() -> vec3<f32> {
-    var world_pos = view.world_position * settings.scene_units_to_m + atmosphere.planet_up * atmosphere.bottom_radius;
+    // Use observer_radius (camera distance from planet centre) for position
+    // reconstruction, NOT bottom_radius (planet surface). This allows the
+    // atmosphere to render correctly at the planet surface while the camera
+    // is above it.
+    var world_pos = view.world_position * settings.scene_units_to_m + atmosphere.planet_up * atmosphere.observer_radius;
     return clamp_to_surface(atmosphere, world_pos);
 }
 
