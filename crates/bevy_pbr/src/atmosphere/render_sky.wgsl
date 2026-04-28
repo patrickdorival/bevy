@@ -65,6 +65,8 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
+        inscattering *= settings.aerial_perspective_scale;
+        transmittance = mix(vec3(1.0), transmittance, settings.aerial_perspective_scale);
     }
 
     // exposure compensation

@@ -30,6 +30,7 @@ struct AtmosphereSettings {
     scene_units_to_m: f32,
     sky_max_samples: u32,
     rendering_method: u32,
+    aerial_perspective_scale: f32,
 }
 
 // "Atmosphere space" is the camera's local coordinate system where Y is always

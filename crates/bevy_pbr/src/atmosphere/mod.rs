@@ -371,6 +371,13 @@ pub struct AtmosphereSettings {
 
     /// The rendering method to use for the atmosphere.
     pub rendering_method: AtmosphereMode,
+
+    /// Multiplier for inscattered light on opaque geometry (aerial perspective).
+    /// 1.0 = full physically-based fog on terrain. 0.0 = no fog on terrain.
+    /// Does not affect sky rendering — sky scattering is always at full strength.
+    /// Useful for games where the atmosphere should be visible in the sky but
+    /// terrain should remain clear and readable.
+    pub aerial_perspective_scale: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -389,6 +396,7 @@ impl Default for AtmosphereSettings {
             scene_units_to_m: 1.0,
             sky_max_samples: 16,
             rendering_method: AtmosphereMode::LookupTexture,
+            aerial_perspective_scale: 1.0,
         }
     }
 }
@@ -409,6 +417,7 @@ pub struct GpuAtmosphereSettings {
     pub scene_units_to_m: f32,
     pub sky_max_samples: u32,
     pub rendering_method: u32,
+    pub aerial_perspective_scale: f32,
 }
 
 impl Default for GpuAtmosphereSettings {
@@ -433,6 +442,7 @@ impl From<AtmosphereSettings> for GpuAtmosphereSettings {
             scene_units_to_m: s.scene_units_to_m,
             sky_max_samples: s.sky_max_samples,
             rendering_method: s.rendering_method as u32,
+            aerial_perspective_scale: s.aerial_perspective_scale,
         }
     }
 }
