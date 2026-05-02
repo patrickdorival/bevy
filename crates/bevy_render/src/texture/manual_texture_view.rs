@@ -14,6 +14,9 @@ pub struct ManualTextureView {
     pub texture_view: TextureView,
     pub size: UVec2,
     pub view_format: TextureFormat,
+    /// Scale factor for this texture view (physical / logical).
+    /// Defaults to 1.0. Set to 2.0 for Retina-style HiDPI targets.
+    pub scale_factor: f32,
 }
 
 impl ManualTextureView {
@@ -22,6 +25,7 @@ impl ManualTextureView {
             texture_view,
             size,
             view_format: TextureFormat::bevy_default(),
+            scale_factor: 1.0,
         }
     }
 }

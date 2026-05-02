@@ -118,6 +118,11 @@ indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
 bitflags = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = "0.32"
+objc = "0.2"
+parking_lot = "0.12"
+
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
 send_wrapper = { version = "0.6.0" }
 
