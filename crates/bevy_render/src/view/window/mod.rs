@@ -17,7 +17,7 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
@@ -807,7 +807,7 @@ fn blit_offscreen_to_window(
         let total_ms = (t_done - t0).as_secs_f64() * 1000.0;
 
         if total_ms > 2.0 {
-            info!(
+            trace!(
                 "METAL_BLIT: {:.1}ms total | drawable={:.1} blit+present={:.1}",
                 total_ms, drawable_ms, blit_ms
             );
