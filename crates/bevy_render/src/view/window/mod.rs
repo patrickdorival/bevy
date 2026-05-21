@@ -104,7 +104,13 @@ impl Plugin for WindowRenderPlugin {
             source_texture: texture,
             #[cfg(target_os = "macos")]
             metal_state: None,
+            shutting_down: alloc::sync::Arc::new(core::sync::atomic::AtomicBool::new(false)),
         });
+
+        // Share the shutdown flag with the main world so it can signal on exit.
+        let shutdown_flag = render_app.world().resource::<OffscreenBlitState>().shutting_down.clone();
+        app.insert_resource(OffscreenShutdownFlag(shutdown_flag));
+        app.add_systems(bevy_app::Last, signal_offscreen_shutdown);
 
         // Insert into main world so camera_system can resolve target info
         app.world_mut().resource_mut::<crate::texture::ManualTextureViews>()
@@ -114,6 +120,23 @@ impl Plugin for WindowRenderPlugin {
             "Offscreen present: {}x{} Bgra8UnormSrgb (handle {:?})",
             config.width, config.height, config.handle
         );
+    }
+}
+
+/// Main-world resource carrying the shutdown flag shared with the render world.
+#[derive(Resource)]
+pub struct OffscreenShutdownFlag(pub alloc::sync::Arc<core::sync::atomic::AtomicBool>);
+
+/// Set the shutdown flag when the app is about to exit so the render-thread
+/// blit doesn't block on nextDrawable for a destroyed window.
+fn signal_offscreen_shutdown(
+    mut exit_events: bevy_ecs::message::MessageReader<bevy_app::AppExit>,
+    flag: Option<Res<OffscreenShutdownFlag>>,
+) {
+    if exit_events.read().next().is_some() {
+        if let Some(flag) = flag {
+            flag.0.store(true, core::sync::atomic::Ordering::Relaxed);
+        }
     }
 }
 
@@ -595,6 +618,7 @@ pub(crate) struct OffscreenBlitState {
     source_texture: wgpu::Texture,
     #[cfg(target_os = "macos")]
     metal_state: Option<MetalPresentState>,
+    pub(crate) shutting_down: alloc::sync::Arc<core::sync::atomic::AtomicBool>,
 }
 
 #[cfg(target_os = "macos")]
@@ -762,11 +786,13 @@ fn blit_offscreen_to_window(
     use objc::rc::autoreleasepool;
 
     let Some(state) = state else { return };
+    if state.shutting_down.load(core::sync::atomic::Ordering::Relaxed) { return; }
     let Some(ref metal_state) = state.metal_state else { return };
 
     let t0 = bevy_platform::time::Instant::now();
 
     autoreleasepool(|| {
+        if state.shutting_down.load(core::sync::atomic::Ordering::Relaxed) { return; }
         let drawable: *mut objc::runtime::Object = unsafe {
             objc::msg_send![metal_state.layer_ptr, nextDrawable]
         };
