@@ -342,6 +342,23 @@ pub fn prepare_windows(
 ) {
     let has_offscreen_blit = offscreen_blit.is_some();
 
+    // If all windows are gone, signal the offscreen blit to stop and detach
+    // the Metal layer so any in-progress nextDrawable returns nil immediately.
+    #[cfg(target_os = "macos")]
+    if windows.windows.is_empty() {
+        if let Some(ref state) = offscreen_blit {
+            if !state.shutting_down.swap(true, core::sync::atomic::Ordering::SeqCst) {
+                if let Some(ref ms) = state.metal_state {
+                    #[allow(unused_imports)]
+                    use objc::{msg_send, sel, sel_impl};
+                    unsafe {
+                        let _: () = msg_send![ms.layer_ptr, removeFromSuperlayer];
+                    }
+                }
+            }
+        }
+    }
+
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
