@@ -137,6 +137,7 @@ fn signal_offscreen_shutdown(
         if let Some(flag) = flag {
             flag.0.store(true, core::sync::atomic::Ordering::Relaxed);
         }
+        std::process::exit(0);
     }
 }
 
@@ -801,11 +802,8 @@ fn blit_offscreen_to_window(
 
     autoreleasepool(|| {
         if state.shutting_down.load(core::sync::atomic::Ordering::Relaxed) { return; }
-        // Use a short timeout so the render thread can check the shutdown flag
-        // and exit cleanly rather than blocking indefinitely on a destroyed layer.
-        let timeout_s: f64 = 0.1;
         let drawable: *mut objc::runtime::Object = unsafe {
-            objc::msg_send![metal_state.layer_ptr, nextDrawableWithTimeout: timeout_s]
+            objc::msg_send![metal_state.layer_ptr, nextDrawable]
         };
         if drawable.is_null() { return; }
 
